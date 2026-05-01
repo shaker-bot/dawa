@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Dawa",
+    "slug": "dawa",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "dawa",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dawa.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Dawa records patient consultations to transcribe clinical notes."
+      }
+    },
+    "android": {
+      "package": "com.dawa.app",
+      "permissions": ["RECORD_AUDIO"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Dawa records patient consultations to transcribe clinical notes."
+        }
+      ]
+    ],
+    "extra": {
+      "transcriptionApiUrl": "https://api.openai.com/v1/audio/transcriptions"
+    }
+  }
+}
