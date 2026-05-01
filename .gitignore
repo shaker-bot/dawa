@@ -1,12 +1,57 @@
+# Dependencies
 node_modules/
+.pnp/
+.pnp.js
+.yarn/install-state.gz
+
+# Expo
 .expo/
+.expo-shared/
 dist/
 web-build/
-*.log
-.env
-.env.local
-.DS_Store
+expo-env.d.ts.bak
+
+# Native build outputs (managed workflow regenerates these)
 ios/
 android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# EAS
+.easignore.local
+
+# Metro
+.metro-health-check*
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
 .idea/
 .vscode/
+*.swp
+*.swo
+
+# Coverage / test artifacts
+coverage/
+.nyc_output/
+
+# Misc
+*.tgz
