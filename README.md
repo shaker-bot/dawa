@@ -1,162 +1,104 @@
-# Dawa
+# claudeopt ⚡
 
-A cross-platform medical transcription and note-taking app for clinicians.
-One TypeScript codebase ships to **web, iOS, and Android** via Expo + React
-Native Web.
+A terminal UI for applying Claude Code settings optimized for **token efficiency and lower cost**. Select a profile, preview the JSON, and apply it to `~/.claude/settings.json` in seconds.
 
-> ⚠️ **Not production-ready for PHI.** This repository is an MVP scaffold.
-> Before handling real patient data, see [Production hardening](#production-hardening).
+![claudeopt screenshot placeholder — run `uv run claudeopt` to see it live]
 
-## Features
+---
 
-- **Per-patient workspace** — patient list, profile (name, MRN, DOB),
-  free-form notes, and recorded consultations.
-- **Audio-recorded consultations** — one-tap recording on web, iOS, and Android
-  via `expo-av` with live duration display.
-- **Broken-English friendly transcription** — OpenAI Whisper handles accents,
-  disfluencies, code-switching, and mixed languages. A **Translate to English**
-  toggle routes audio through Whisper's translation endpoint so non-English or
-  broken-English speech comes back as clean English. A medical-domain prompt
-  biases the model toward correct drug names, dosages, units, and anatomy.
-- **Upload-ready storage seam** — local-first via AsyncStorage today, with a
-  `PatientRepository` interface and `syncStatus` flags on every record so a
-  remote backend can be added without touching the UI.
+## What it does
 
-## Tech stack
+`claudeopt` presents four pre-tuned optimization profiles for [Claude Code](https://claude.ai/code). Each profile sets the default model, verbosity, commit attribution, and session cleanup to different cost/capability trade-offs. Settings are written to `~/.claude/settings.json` (your existing hooks, permissions, and other keys are always preserved).
 
-| Concern             | Choice                                              |
-| ------------------- | --------------------------------------------------- |
-| Framework           | Expo SDK 51, Expo Router 3                          |
-| Language            | TypeScript (strict)                                 |
-| Native              | React Native 0.74                                   |
-| Web                 | React Native Web                                    |
-| Audio capture       | `expo-av`                                           |
-| Local storage       | `@react-native-async-storage/async-storage`         |
-| Transcription       | OpenAI Whisper (`whisper-1`)                        |
+---
 
-## Getting started
+## Requirements
 
-### Prerequisites
+- **Python 3.11+**
+- **uv** — fast Python package manager
 
-- Node 20+ and npm 10+
-- An OpenAI API key with Whisper access (dev only — see security note below)
-- For native: Xcode (iOS), Android Studio (Android), or the Expo Go app on a
-  physical device
-
-### Setup
-
+Install `uv` if you don't have it:
 ```bash
-git clone <this-repo>
-cd dawa
-npm install
-cp .env.example .env
-# edit .env and set EXPO_PUBLIC_OPENAI_API_KEY
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### Run
+---
+
+## Quick start
 
 ```bash
-npm run web       # browser
-npm run ios       # iOS simulator
-npm run android   # Android emulator
-npm start         # Expo dev menu (pick a target)
+git clone <this-repo> claudeopt
+cd claudeopt
+uv sync          # installs textual, rich, and hatchling into .venv
+uv run claudeopt # launches the TUI
 ```
 
-### Type-check
+---
 
-```bash
-npm run typecheck
-```
+## Optimization profiles
+
+| Profile | Emoji | Model | verbose | includeCoAuthoredBy | Cost |
+|---|---|---|---|---|---|
+| Max Efficiency | 🚀 | claude-haiku-4-5-20251001 | false | false | ░░░░ (lowest) |
+| Smart Default | ⚡ | claude-sonnet-4-6 | false | false | ██░░ |
+| Developer Mode | 🔧 | claude-sonnet-4-6 | true | true | ███░ |
+| Full Power | 💎 | claude-opus-4-8 | true | true | ████ (highest) |
+
+**Token savings of note:**
+- `verbose: false` — suppresses detailed tool-call output in Claude's context window
+- `includeCoAuthoredBy: false` — removes the trailing `Co-authored-by:` line from every git commit message Claude writes
+- Haiku vs Opus — roughly 20× cheaper per token at the API level
+
+---
+
+## Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `1` – `4` | Select profile |
+| `a` | Apply selected profile |
+| `e` | Open advanced per-field editor |
+| `?` | Show help toast |
+| `q` / `Ctrl+Q` | Quit |
+| `Escape` | Cancel / go back |
+| `Ctrl+S` | Save (in advanced mode) |
+
+---
+
+## How settings are applied
+
+1. Reads your current `~/.claude/settings.json` (or creates it if absent).
+2. **Backs up** the existing file to `~/.claude/backups/settings_<timestamp>.json`.
+3. Merges the profile's managed keys (`model`, `verbose`, `includeCoAuthoredBy`, `cleanupPeriodDays`, `theme`) into the existing JSON — all other keys (hooks, permissions, env vars, etc.) are **preserved untouched**.
+4. Writes atomically via a `.tmp` rename so a mid-write crash can't corrupt the file.
+
+---
+
+## Advanced mode
+
+Press `e` from the main screen to open the per-field editor. You can independently set each setting — live JSON preview updates as you type. Press `Ctrl+S` or click **Save** to write, or `Escape` to go back without saving.
+
+---
 
 ## Project layout
 
 ```
-app/                          Expo Router screens
-  _layout.tsx                 Root stack
-  index.tsx                   Patient list
-  patient/new.tsx             New patient (modal)
-  patient/[id].tsx            Patient detail: record, transcribe, notes
-
-src/
-  components/
-    AudioRecorder.tsx         Cross-platform mic capture (web + native)
-  storage/
-    PatientRepository.ts      Storage interface
-    LocalPatientRepository.ts AsyncStorage implementation
-    index.ts                  Singleton export
-  transcription/
-    whisper.ts                Whisper API client (transcribe + translate)
-  types.ts                    Patient, Note, Recording, SyncStatus
-
-app.json                      Expo config (permissions, plugins)
-babel.config.js
-tsconfig.json
+src/claudeopt/
+  app.py                  Entry point (ClaudeOptApp)
+  theme.py                Teal/cyan color theme (no purple)
+  models.py               Profile definitions and ClaudeSettings dataclass
+  settings_io.py          Read / backup / atomic-write ~/.claude/settings.json
+  screens/
+    main_screen.py        Profile cards + live preview
+    advanced_screen.py    Per-field editor
+    confirm_modal.py      Apply confirmation dialog
+  widgets/
+    profile_card.py       Clickable profile card with cost bar
+    settings_preview.py   Syntax-highlighted JSON preview
 ```
 
-## How transcription handles broken English
-
-`src/transcription/whisper.ts` exposes `transcribeAudio({ uri, mimeType,
-translateToEnglish })`. Two strategies are available:
-
-1. **Translate to English (default)** — POSTs to
-   `/v1/audio/translations`. Whisper auto-detects the source language,
-   tolerates accented and disfluent speech, and returns English text. Best
-   when the speaker mixes languages or uses broken English.
-2. **Transcribe in source language** — POSTs to `/v1/audio/transcriptions`.
-   Output preserves the original language (useful when the clinician needs
-   verbatim records).
-
-Both calls send a medical-domain `prompt` so Whisper biases toward clinical
-vocabulary, drug names, ICD/CPT codes, vital signs, and units.
-
-## Storage and future cloud upload
-
-Every record carries a `syncStatus`:
-
-```ts
-type SyncStatus = 'local' | 'pending-upload' | 'uploaded' | 'failed';
-```
-
-`localPatientRepository` always writes `syncStatus: 'local'`. To add a cloud
-backend later:
-
-1. Implement `PatientRepository` against your API (e.g., `RemotePatientRepository`).
-2. Or implement a sync worker that watches for `local` records, uploads them,
-   and flips them to `uploaded`.
-3. Swap or compose the export in `src/storage/index.ts`. Screens consume the
-   interface and don't need changes.
-
-## Production hardening
-
-This MVP is **not** ready for real PHI. Before any clinical use:
-
-- **Move the OpenAI key off-device.** `EXPO_PUBLIC_*` vars ship to clients.
-  Replace the direct Whisper call with a server you control that holds the key
-  and forwards audio.
-- **Sign a BAA** with your transcription provider (OpenAI offers BAAs on
-  enterprise plans; alternatives: AWS Transcribe Medical, Azure Speech, Google
-  Healthcare NL).
-- **Encrypt at rest.** Use `expo-secure-store` for secrets and SQLCipher (or
-  equivalent) for the patient store instead of AsyncStorage.
-- **Encrypt in transit.** TLS only; pin certificates on native if your threat
-  model requires it.
-- **Authenticate clinicians.** Add SSO/OIDC, session timeouts, and per-user
-  audit logging of all reads/writes.
-- **Add an audit trail** for record access, edits, exports, and deletions.
-- **Region-pin** storage and processing to satisfy data-residency rules.
-- **Consent capture** before recording any patient.
-
-## Roadmap
-
-- [ ] Backend proxy for Whisper (remove client-side API key)
-- [ ] `RemotePatientRepository` + background sync worker
-- [ ] Audit log
-- [ ] Authentication (SSO/OIDC)
-- [ ] Encrypted local store (SQLCipher / `expo-sqlite` + key from secure store)
-- [ ] Edit notes inline; rich text or templated SOAP notes
-- [ ] Speaker diarization (clinician vs. patient)
-- [ ] Export to PDF / FHIR `DocumentReference`
+---
 
 ## License
 
-TBD.
+MIT
