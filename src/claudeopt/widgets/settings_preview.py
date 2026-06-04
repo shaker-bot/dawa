@@ -24,12 +24,12 @@ class SettingsPreview(Widget):
         self._settings = settings_dict
 
     def compose(self) -> ComposeResult:
-        yield Static(self._render(), id="preview-static")
+        yield Static(self._build_syntax(), id="preview-static")
 
-    def _render(self) -> Syntax:
+    def _build_syntax(self) -> Syntax:
         text = json.dumps(self._settings, indent=4)
         return Syntax(text, "json", theme="github-dark", line_numbers=False)
 
     def update_settings(self, settings_dict: dict) -> None:
         self._settings = settings_dict
-        self.query_one("#preview-static", Static).update(self._render())
+        self.query_one("#preview-static", Static).update(self._build_syntax())
